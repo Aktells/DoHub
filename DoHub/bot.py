@@ -8,10 +8,15 @@ NGO_CSV_PATH = "ngos.csv"
 OLLAMA_URL   = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "llama3"   # or mistral, gemma:instruct
 
+from pathlib import Path
+
+NGO_CSV_PATH = Path(__file__).parent / "ngos.csv"
+
 try:
     NGOs = pd.read_csv(NGO_CSV_PATH).fillna("")
 except FileNotFoundError:
-    NGOs = pd.read_csv("/mnt/data/ngos.csv").fillna("")
+    NGOs = pd.DataFrame(columns=["name", "city", "categories", "accepts_items", "accepts_volunteer_skills", "description"])
+
 
 def _normalize_tokens(s: str) -> List[str]:
     return [t.strip().lower() for t in re.split(r"[,/;]|\band\b|\bor\b", str(s)) if t.strip()]
@@ -82,3 +87,4 @@ def get_bot_response(profile: Dict[str, Any]) -> str:
         fallback = "\n".join(f"- {row['name']} (heuristic filter)" for _, row in cands.head(5).iterrows())
         return f"(LLM failed, showing heuristics)\n{fallback}"
     return ranked_text
+
