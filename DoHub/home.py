@@ -106,19 +106,88 @@ with st.container():  # this is the real container that holds widgets
             if st.button("Log Out"):
                 st.session_state.clear()
                 st.rerun()
+# ---------- RIGHT: Animated Login / Register ----------
+# CSS for the small fade/slide animation
+st.markdown("""
+<style>
+.fade-enter { animation: fadeSlide .35s ease both; }
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.auth-tabs a {
+  margin-right: 10px; font-weight: 700; text-decoration: none;
+  padding: 6px 10px; border-radius: 10px; border: 1px solid #555;
+  background: #ffffff1a; color: #fff;
+}
+.auth-tabs a.active { background: #ffffff33; }
+.auth-tabs a:hover { background: #ffffff3f; }
+</style>
+""", unsafe_allow_html=True)
 
-  # Right column -> Log In (inside your existing card/columns)
-email = st.text_input("Email", key="login_email")
-pwd   = st.text_input("Password", type="password", key="login_pwd")
+# Keep a tiny state to know which pane to show
+if "auth_mode" not in st.session_state:
+    st.session_state.auth_mode = "login"
 
-if st.button("Log In", key="login_btn"):
-    user = validate_user(email, pwd)  # <-- DB check
-    if user:
-        st.session_state["auth"] = True
-        st.session_state["user_email"] = user["email"]
-        st.session_state["role"] = user["role"]
-        st.success("Logged in successfully!")
-        st.switch_page("pages/model.py")
-    else:
-        st.error("Invalid email or password.")
+def _switch_auth(mode: str):
+    st.session_state.auth_mode = mode
+
+with right:
+    # Header "tabs" that look like your OG controls
+    col_tab_login, col_tab_reg = st.columns([1,1])
+    with col_tab_login:
+        if st.button("Log In", key="tab_login_btn"):
+            _switch_auth("login")
+    with col_tab_reg:
+        if st.button("Register", key="tab_register_btn"):
+            _switch_auth("register")
+
+    # LOGIN PANE
+    if st.session_state.auth_mode == "login" and not st.session_state.get("auth", False):
+        st.markdown('<div class="fade-enter">', unsafe_allow_html=True)
+        email = st.text_input("Email", placeholder="you@example.org", key="login_email")
+        pwd   = st.text_input("Password", type="password", placeholder="Enter password", key="login_pwd")
+        if st.button("Log In", key="login_btn"):
+            user = validate_user(email, pwd)   # <-- real DB check
+            if user:
+                st.session_state["auth"] = True
+                st.session_state["user_email"] = user["email"]
+                st.session_state["role"] = user["role"]
+                st.success("Logged in successfully!")
+                st.switch_page("pages/model.py")
+            else:
+                st.error("Invalid email or password.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # REGISTER PANE
+    elif st.session_state.auth_mode == "register" and not st.session_state.get("auth", False):
+        st.markdown('<div class="fade-enter">', unsafe_allow_html=True)
+        new_email = st.text_input("Email", key="reg_email")
+        new_pwd   = st.text_input("Password", type="password", key="reg_pwd")
+        if st.button("Create Account", key="reg_btn"):
+            if not new_email or not new_pwd:
+                st.error("Please enter email and password.")
+            else:
+                ok = register_user(new_email, new_pwd, role="volunteer")
+                if ok:
+                    st.success("Account created! Please log in.")
+                    _switch_auth("login")
+                else:
+                    st.error("This email is already registered.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # When already logged in
+    elif st.session_state.get("auth", False):
+        st.markdown('<div class="fade-enter">', unsafe_allow_html=True)
+        st.success(f"Logged in as {st.session_state['user_email']} ({st.session_state.get('role','')})")
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("Go to Profile"):
+                st.switch_page("pages/profile.py")
+        with c2:
+            if st.button("Log Out"):
+                st.session_state.clear()
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
 
