@@ -1,4 +1,18 @@
 import streamlit as st
+# --- imports for DB (place at the very top of home.py) ---
+import sys
+from pathlib import Path
+
+# If your app files live in DoHub/, adjust root accordingly.
+ROOT = Path(__file__).resolve().parent
+if (ROOT / "db.py").exists():
+    sys.path.append(str(ROOT))
+elif (ROOT.parent / "db.py").exists():
+    sys.path.append(str(ROOT.parent))
+
+from db import init_db, validate_user, register_user, seed_demo_user
+
+init_db()
 
 st.set_page_config(page_title="DoHub | Home", layout="centered")
 
@@ -93,41 +107,18 @@ with st.container():  # this is the real container that holds widgets
                 st.session_state.clear()
                 st.rerun()
 
-  # RIGHT column — LOGIN / REGISTER
-if not st.session_state.get("auth", False):
-    tab1, tab2 = st.tabs(["Log In", "Register"])
+  # Right column -> Log In (inside your existing card/columns)
+email = st.text_input("Email", key="login_email")
+pwd   = st.text_input("Password", type="password", key="login_pwd")
 
-    with tab1:
-        email = st.text_input("Email", key="login_email")
-        pwd = st.text_input("Password", type="password", key="login_pwd")
-        if st.button("Log In", key="login_btn"):
-            user = validate_user(email, pwd)  # <-- DB check
-            if user:
-                st.session_state["auth"] = True
-                st.session_state["user_email"] = user["email"]
-                st.session_state["role"] = user["role"]
-                st.success(f"Welcome back, {user['role'].title()}!")
-                st.switch_page("pages/model.py")
-            else:
-                st.error("Invalid email or password.")
+if st.button("Log In", key="login_btn"):
+    user = validate_user(email, pwd)  # <-- DB check
+    if user:
+        st.session_state["auth"] = True
+        st.session_state["user_email"] = user["email"]
+        st.session_state["role"] = user["role"]
+        st.success("Logged in successfully!")
+        st.switch_page("pages/model.py")
+    else:
+        st.error("Invalid email or password.")
 
-    with tab2:
-        new_email = st.text_input("Email", key="reg_email")
-        new_pwd = st.text_input("Password", type="password", key="reg_pwd")
-        if st.button("Register Volunteer", key="reg_btn"):
-            ok = register_user(new_email, new_pwd, role="volunteer")
-            if ok:
-                st.success("Account created! Please log in.")
-            else:
-                st.error("This email is already registered.")
-
-else:
-    st.success(f"Logged in as {st.session_state['user_email']} ({st.session_state['role']})")
-    colA, colB = st.columns(2)
-    with colA:
-        if st.button("Go to Profile"):
-            st.switch_page("pages/profile.py")
-    with colB:
-        if st.button("Log Out"):
-            st.session_state.clear()
-            st.rerun()
