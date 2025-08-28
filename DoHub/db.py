@@ -1,12 +1,7 @@
 # db.py
 from pathlib import Path
 import streamlit as st
-from config import DEMO
 from passlib.hash import bcrypt
-DEMO = False  
-# Choose PG if not demo and secrets exist; otherwise SQLite
-USE_PG = (not DEMO) and all(k in st.secrets for k in ("DB_HOST","DB_NAME","DB_USER","DB_PASS"))
-
 if USE_PG:
     import psycopg2
     from psycopg2 import sql
@@ -136,5 +131,6 @@ def seed_demo_user():
         return
     if not user_exists("demo@dohub.in"):
         register_user("demo@dohub.in", "demo123", role="volunteer")
+
 
 
