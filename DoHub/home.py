@@ -93,32 +93,41 @@ with st.container():  # this is the real container that holds widgets
                 st.session_state.clear()
                 st.rerun()
 
-    # RIGHT SIDE
-    with right_col:
-        if not st.session_state.get("auth"):
-            tab_login, tab_register = st.tabs(["Log In", "Register"])
-            with tab_login:
-                email = st.text_input("Email", placeholder="you@example.org", key="login_email")
-                pwd = st.text_input("Password", type="password", placeholder="Enter password", key="login_pwd")
-                if st.button("Log In"):
-                    # TODO: swap this with your validate_user from db.py
-                    if email and pwd:
-                        st.session_state["auth"] = True
-                        st.session_state["user_email"] = email
-                        st.session_state["role"] = "volunteer"
-                        st.success("Logged in successfully!")
-                        st.switch_page("pages/model.py")
-                    else:
-                        st.error("Please enter both email and password.")
-            with tab_register:
-                new_email = st.text_input("Email", key="reg_email")
-                new_pwd = st.text_input("Password", type="password", key="reg_pwd")
-                if st.button("Register Volunteer"):
-                    if new_email and new_pwd:
-                        # TODO: call register_user(new_email, new_pwd, role="volunteer")
-                        st.success("Account created! You can log in now.")
-                    else:
-                        st.error("Enter email and password to register.")
+  # RIGHT column — LOGIN / REGISTER
+if not st.session_state.get("auth", False):
+    tab1, tab2 = st.tabs(["Log In", "Register"])
 
-    st.markdown('</div>', unsafe_allow_html=True)  # end .glass-row
-# ================== END GLASS CARD ==================
+    with tab1:
+        email = st.text_input("Email", key="login_email")
+        pwd = st.text_input("Password", type="password", key="login_pwd")
+        if st.button("Log In", key="login_btn"):
+            user = validate_user(email, pwd)  # <-- DB check
+            if user:
+                st.session_state["auth"] = True
+                st.session_state["user_email"] = user["email"]
+                st.session_state["role"] = user["role"]
+                st.success(f"Welcome back, {user['role'].title()}!")
+                st.switch_page("pages/model.py")
+            else:
+                st.error("Invalid email or password.")
+
+    with tab2:
+        new_email = st.text_input("Email", key="reg_email")
+        new_pwd = st.text_input("Password", type="password", key="reg_pwd")
+        if st.button("Register Volunteer", key="reg_btn"):
+            ok = register_user(new_email, new_pwd, role="volunteer")
+            if ok:
+                st.success("Account created! Please log in.")
+            else:
+                st.error("This email is already registered.")
+
+else:
+    st.success(f"Logged in as {st.session_state['user_email']} ({st.session_state['role']})")
+    colA, colB = st.columns(2)
+    with colA:
+        if st.button("Go to Profile"):
+            st.switch_page("pages/profile.py")
+    with colB:
+        if st.button("Log Out"):
+            st.session_state.clear()
+            st.rerun()
