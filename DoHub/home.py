@@ -1,5 +1,18 @@
 import streamlit as st
 
+# --- DB imports (keeps your structure working locally & on Cloud) ---
+import sys
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent
+if (ROOT / "db.py").exists():
+    sys.path.append(str(ROOT))
+elif (ROOT.parent / "db.py").exists():
+    sys.path.append(str(ROOT.parent))
+from db import init_db, validate_user, register_user  # <-- real DB auth
+
+# init once
+init_db()
+
 st.set_page_config(page_title="DoHub | Home", layout="centered")
 
 # ---- Global page bg (keep your dark theme) ----
@@ -84,7 +97,7 @@ with st.container():  # this is the real container that holds widgets
         if st.button("Sign Up as NGO"):
             st.switch_page("pages/ngoscreen.py")
 
-        # If already logged in, show quick actions (optional)
+        # If already logged in, show quick actions
         if st.session_state.get("auth"):
             st.success(f"Logged in as {st.session_state.get('user_email')}")
             if st.button("Go to Profile"):
@@ -93,32 +106,39 @@ with st.container():  # this is the real container that holds widgets
                 st.session_state.clear()
                 st.rerun()
 
-    # RIGHT SIDE
+    # RIGHT SIDE (tabs; DB-backed)
     with right_col:
         if not st.session_state.get("auth"):
             tab_login, tab_register = st.tabs(["Log In", "Register"])
+
+            # ---- Log In ----
             with tab_login:
                 email = st.text_input("Email", placeholder="you@example.org", key="login_email")
                 pwd = st.text_input("Password", type="password", placeholder="Enter password", key="login_pwd")
-                if st.button("Log In"):
-                    # TODO: swap this with your validate_user from db.py
-                    if email and pwd:
+                if st.button("Log In", key="login_btn"):
+                    user = validate_user(email, pwd)  # <-- REAL DB check
+                    if user:
                         st.session_state["auth"] = True
-                        st.session_state["user_email"] = email
-                        st.session_state["role"] = "volunteer"
+                        st.session_state["user_email"] = user["email"]
+                        st.session_state["role"] = user["role"]
                         st.success("Logged in successfully!")
                         st.switch_page("pages/model.py")
                     else:
-                        st.error("Please enter both email and password.")
+                        st.error("Invalid email or password.")
+
+            # ---- Register ----
             with tab_register:
                 new_email = st.text_input("Email", key="reg_email")
                 new_pwd = st.text_input("Password", type="password", key="reg_pwd")
-                if st.button("Register Volunteer"):
-                    if new_email and new_pwd:
-                        # TODO: call register_user(new_email, new_pwd, role="volunteer")
-                        st.success("Account created! You can log in now.")
-                    else:
+                if st.button("Register Volunteer", key="reg_btn"):
+                    if not new_email or not new_pwd:
                         st.error("Enter email and password to register.")
+                    else:
+                        ok = register_user(new_email, new_pwd, role="volunteer")
+                        if ok:
+                            st.success("Account created! You can log in now.")
+                        else:
+                            st.error("This email is already registered.")
 
     st.markdown('</div>', unsafe_allow_html=True)  # end .glass-row
 # ================== END GLASS CARD ==================
