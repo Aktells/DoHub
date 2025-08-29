@@ -4,3 +4,5 @@ requests>=2.31.0
 bcrypt>=4.1.2
 psycopg2-binary>=2.9.9
 passlib[bcrypt]>=1.7.4
+ollama
+llama3
