@@ -8,11 +8,12 @@ from pathlib import Path
 # CONFIG
 # -------------------
 NGO_CSV_PATH = Path(__file__).parent / "ngos.csv"
+# Point this to your ngrok/cloudflare tunnel URL
 OLLAMA_URL   = "https://6240aee68a5c.ngrok-free.app/api/generate"   # or /api/chat
-OLLAMA_MODEL = "llama3.2"   # or mistral, gemma:instruct
+OLLAMA_MODEL = "llama3.2"   # can be llama3, mistral, gemma:instruct, etc.
 
 # -------------------
-# DATA LOAD
+# LOAD DATA
 # -------------------
 try:
     NGOs = pd.read_csv(NGO_CSV_PATH).fillna("")
@@ -60,31 +61,35 @@ TASK: Given a user profile and candidate NGOs, recommend the top matches.
 FORMAT: 
 - NGO Name — short reason why it matches (cause, city, items/skills)
 - NGO Name — short reason...
-(max 5 recommendations)
+(max 5 recommendations, plain text only)
 """
 
 # -------------------
-# LLM RANKING
+# LLM CALL
 # -------------------
 def rank_with_llm(profile: Dict[str, Any], candidates_df: pd.DataFrame, n_results: int = 5) -> str:
     candidates = candidates_df.to_dict(orient="records")
 
-    # build compact prompt
+    # Keep payload short (avoid ngrok issues)
+    compact_candidates = [{"name": c["name"], "city": c["city"], "categories": c["categories"]}
+                          for c in candidates[:10]]
+
     user_prompt = f"""
-    User profile:
-    City: {profile.get('city','')}
-    Needs: {', '.join(profile.get('needs', []))}
-    Items: {', '.join(profile.get('items_to_donate', []))}
-    Skills: {', '.join(profile.get('skills', []))}
-    Notes: {profile.get('notes','')}
+User profile:
+City: {profile.get('city','')}
+Needs: {', '.join(profile.get('needs', []))}
+Items: {', '.join(profile.get('items_to_donate', []))}
+Skills: {', '.join(profile.get('skills', []))}
+Notes: {profile.get('notes','')}
 
-    Candidate NGOs:
-    {json.dumps(candidates[:10], indent=2)}
+Candidate NGOs:
+{json.dumps(compact_candidates, indent=2)}
 
-    Return top {n_results} matches as bullet points.
-    """
+Return top {n_results} matches as bullet points.
+"""
 
     try:
+        # Decide payload based on endpoint
         if "/api/chat" in OLLAMA_URL:
             payload = {
                 "model": OLLAMA_MODEL,
@@ -101,21 +106,47 @@ def rank_with_llm(profile: Dict[str, Any], candidates_df: pd.DataFrame, n_result
                 "stream": False
             }
 
-        resp = requests.post(OLLAMA_URL, json=payload, timeout=60)
+        # Make the request
+        resp = requests.post(OLLAMA_URL, json=payload, timeout=90)
         resp.raise_for_status()
-        data = resp.json()
 
-        if "/api/chat" in OLLAMA_URL:
-            raw = data.get("message", {}).get("content", "").strip()
+        # Try to decode JSON
+        try:
+            data = resp.json()
+        except Exception:
+            raw_text = resp.text
+            print("RAW NON-JSON RESPONSE:", raw_text[:400])
+            return raw_text
+
+        # Robust extraction
+        raw = ""
+        if isinstance(data, dict):
+            raw = (
+                data.get("response") or
+                (data.get("message", {}) or {}).get("content") or
+                ""
+            )
+        elif isinstance(data, list):
+            # Sometimes you get a list of chunks
+            parts = []
+            for item in data:
+                if "response" in item:
+                    parts.append(item["response"])
+                elif "message" in item and "content" in item["message"]:
+                    parts.append(item["message"]["content"])
+            raw = "".join(parts)
+
+        raw = raw.strip()
+        if not raw:
+            print("DEBUG full JSON:", json.dumps(data, indent=2)[:400])
         else:
-            raw = data.get("response", "").strip()
+            print("RAW LLM RESPONSE:", raw[:400])
 
-        return raw or "(empty LLM reply)"
+        return raw
 
     except Exception as e:
         print("LLM error:", e)
         return ""
-
 
 # -------------------
 # ENTRY POINT
@@ -125,10 +156,12 @@ def get_bot_response(profile: Dict[str, Any]) -> str:
     ranked_text = rank_with_llm(profile, cands, n_results=5)
     if not ranked_text:
         # fallback: just return top candidates
-        fallback = "\n".join(f"- {row['name']} (heuristic filter)" 
+        fallback = "\n".join(f"- {row['name']} (heuristic filter)"
                              for _, row in cands.head(5).iterrows())
         return f"(LLM failed, showing heuristics)\n{fallback}"
     return ranked_text
 
+# Debug info
 print("OLLAMA_URL in use:", OLLAMA_URL)
+print("OLLAMA_MODEL in use:", OLLAMA_MODEL)
 
