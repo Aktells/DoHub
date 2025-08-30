@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 import pandas as pd
 
 NGO_CSV_PATH = "ngos.csv"
-OLLAMA_URL   = "https://d6f5d1f660dd.ngrok-free.app"
+OLLAMA_URL   = "https://d6f5d1f660dd.ngrok-free.app/api/chat"
 OLLAMA_MODEL = "llama3"   # or mistral, gemma:instruct
 
 from pathlib import Path
@@ -87,5 +87,6 @@ def get_bot_response(profile: Dict[str, Any]) -> str:
         fallback = "\n".join(f"- {row['name']} (heuristic filter)" for _, row in cands.head(5).iterrows())
         return f"(LLM failed, showing heuristics)\n{fallback}"
     return ranked_text
+
 
 
