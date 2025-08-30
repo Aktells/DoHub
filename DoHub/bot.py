@@ -1,23 +1,29 @@
-# bot.py (no JSON strictness)
 from __future__ import annotations
-import re, requests
+import re, requests, json
 from typing import Any, Dict, List
 import pandas as pd
-
-NGO_CSV_PATH = "ngos.csv"
-OLLAMA_URL   = "https://6240aee68a5c.ngrok-free.app/api/chat"
-OLLAMA_MODEL = "llama3.2"   # or mistral, gemma:instruct
-
 from pathlib import Path
 
+# -------------------
+# CONFIG
+# -------------------
 NGO_CSV_PATH = Path(__file__).parent / "ngos.csv"
+OLLAMA_URL   = "https://6240aee68a5c.ngrok-free.app/api/generate"   # or /api/chat
+OLLAMA_MODEL = "llama3.2"   # or mistral, gemma:instruct
 
+# -------------------
+# DATA LOAD
+# -------------------
 try:
     NGOs = pd.read_csv(NGO_CSV_PATH).fillna("")
 except FileNotFoundError:
-    NGOs = pd.DataFrame(columns=["name", "city", "categories", "accepts_items", "accepts_volunteer_skills", "description"])
+    NGOs = pd.DataFrame(columns=["name", "city", "categories",
+                                 "accepts_items", "accepts_volunteer_skills",
+                                 "description"])
 
-
+# -------------------
+# HELPERS
+# -------------------
 def _normalize_tokens(s: str) -> List[str]:
     return [t.strip().lower() for t in re.split(r"[,/;]|\band\b|\bor\b", str(s)) if t.strip()]
 
@@ -43,6 +49,9 @@ def filter_candidates(profile: Dict[str, Any], top_k: int = 25) -> pd.DataFrame:
 
     return df.sort_values(["score_pre"], ascending=False).head(top_k)
 
+# -------------------
+# PROMPT
+# -------------------
 SYSTEM_MSG = """
 You are an NGO recommender.
 
@@ -54,44 +63,63 @@ FORMAT:
 (max 5 recommendations)
 """
 
+# -------------------
+# LLM RANKING
+# -------------------
 def rank_with_llm(profile: Dict[str, Any], candidates_df: pd.DataFrame, n_results: int = 5) -> str:
     candidates = candidates_df.to_dict(orient="records")
-    prompt = {
-        "system": SYSTEM_MSG,
-        "user": {
-            "profile": profile,
-            "candidates": candidates,
-            "n_results": n_results
-        }
+    user_prompt = {
+        "profile": profile,
+        "candidates": candidates,
+        "n_results": n_results
     }
 
     try:
-        resp = requests.post(
-            OLLAMA_URL,
-            json={"model": OLLAMA_MODEL, "prompt": str(prompt), "stream": False},
-            timeout=120,
-        )
+        # Decide payload based on endpoint
+        if "/api/chat" in OLLAMA_URL:
+            payload = {
+                "model": OLLAMA_MODEL,
+                "messages": [
+                    {"role": "system", "content": SYSTEM_MSG},
+                    {"role": "user", "content": json.dumps(user_prompt, indent=2)}
+                ],
+                "stream": False,
+            }
+        else:  # default to /api/generate
+            payload = {
+                "model": OLLAMA_MODEL,
+                "prompt": f"{SYSTEM_MSG}\n\nUser + NGOs:\n{json.dumps(user_prompt, indent=2)}",
+                "stream": False,
+            }
+
+        resp = requests.post(OLLAMA_URL, json=payload, timeout=120)
         resp.raise_for_status()
-        raw = resp.json().get("response", "").strip()
+        data = resp.json()
+
+        # Different keys for different endpoints
+        if "/api/chat" in OLLAMA_URL:
+            raw = data.get("message", {}).get("content", "").strip()
+        else:
+            raw = data.get("response", "").strip()
+
         print("RAW LLM RESPONSE:", raw[:400])
         return raw
+
     except Exception as e:
         print("LLM error:", e)
         return ""
 
+# -------------------
+# ENTRY POINT
+# -------------------
 def get_bot_response(profile: Dict[str, Any]) -> str:
     cands = filter_candidates(profile, top_k=15)
     ranked_text = rank_with_llm(profile, cands, n_results=5)
     if not ranked_text:
         # fallback: just return top candidates
-        fallback = "\n".join(f"- {row['name']} (heuristic filter)" for _, row in cands.head(5).iterrows())
+        fallback = "\n".join(f"- {row['name']} (heuristic filter)" 
+                             for _, row in cands.head(5).iterrows())
         return f"(LLM failed, showing heuristics)\n{fallback}"
     return ranked_text
+
 print("OLLAMA_URL in use:", OLLAMA_URL)
-
-
-
-
-
-
-
