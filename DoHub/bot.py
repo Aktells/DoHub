@@ -9,10 +9,8 @@ from openai import OpenAI
 # CONFIG
 # -------------------
 NGO_CSV_PATH = Path(__file__).parent / "ngos.csv"
-OPENAI_MODEL = "gpt-4o-mini"   # reliable + cheap for recommendations
+OPENAI_MODEL = "gpt-4o-mini"   # or gpt-3.5-turbo if needed
 
-# init OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # -------------------
 # LOAD NGO DATA
 # -------------------
@@ -52,9 +50,13 @@ def filter_candidates(profile: Dict[str, Any], top_k: int = 25) -> pd.DataFrame:
     return df.sort_values(["score_pre"], ascending=False).head(top_k)
 
 # -------------------
-# PROMPT
+# LLM HELPER
 # -------------------
-SYSTEM_MSG = "You are an NGO recommender. Recommend the best NGOs for the user."
+def _get_client() -> OpenAI:
+    key = os.getenv("OPENAI_API_KEY")
+    if not key:
+        raise RuntimeError("❌ OPENAI_API_KEY not set. Add it in Streamlit secrets.")
+    return OpenAI(api_key=key)
 
 # -------------------
 # LLM RANKING
@@ -79,24 +81,35 @@ Return top {n_results} matches as bullet points.
 """
 
     try:
+        client = _get_client()
         resp = client.chat.completions.create(
-            model="gpt-4o-mini",   # try gpt-3.5-turbo if this fails
+            model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": "You are an NGO recommender."},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.4,
-            max_tokens=500,   # ensure enough room in reply
+            max_tokens=500,
         )
 
         raw = resp.choices[0].message.content
         if raw:
             return raw.strip()
-        else:
-            return "(OpenAI returned empty response)"
+        return "(⚠️ OpenAI returned empty response)"
 
     except Exception as e:
         import traceback
         traceback.print_exc()
         return f"(OpenAI API error: {e})"
 
+# -------------------
+# ENTRY POINT
+# -------------------
+def get_bot_response(profile: Dict[str, Any]) -> str:
+    cands = filter_candidates(profile, top_k=15)
+    ranked_text = rank_with_llm(profile, cands, n_results=5)
+    if not ranked_text:
+        fallback = "\n".join(f"- {row['name']} (heuristic filter)"
+                             for _, row in cands.head(5).iterrows())
+        return f"(LLM failed, showing heuristics)\n{fallback}"
+    return ranked_text
