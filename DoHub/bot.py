@@ -87,6 +87,8 @@ def get_bot_response(profile: Dict[str, Any]) -> str:
         fallback = "\n".join(f"- {row['name']} (heuristic filter)" for _, row in cands.head(5).iterrows())
         return f"(LLM failed, showing heuristics)\n{fallback}"
     return ranked_text
+print("OLLAMA_URL in use:", OLLAMA_URL)
+
 
 
 
