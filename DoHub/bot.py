@@ -12,8 +12,7 @@ NGO_CSV_PATH = Path(__file__).parent / "ngos.csv"
 OPENAI_MODEL = "gpt-4o-mini"   # reliable + cheap for recommendations
 
 # init OpenAI client
-client = OpenAI(api_key=os.getenv("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"))
-
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # -------------------
 # LOAD NGO DATA
 # -------------------
@@ -107,3 +106,4 @@ def get_bot_response(profile: Dict[str, Any]) -> str:
                              for _, row in cands.head(5).iterrows())
         return f"(LLM failed, showing heuristics)\n{fallback}"
     return ranked_text
+
