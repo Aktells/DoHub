@@ -80,30 +80,23 @@ Return top {n_results} matches as bullet points.
 
     try:
         resp = client.chat.completions.create(
-            model=OPENAI_MODEL,
+            model="gpt-4o-mini",   # try gpt-3.5-turbo if this fails
             messages=[
-                {"role": "system", "content": SYSTEM_MSG},
+                {"role": "system", "content": "You are an NGO recommender."},
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.4,
+            max_tokens=500,   # ensure enough room in reply
         )
 
-        raw = resp.choices[0].message.content.strip()
-        return raw
+        raw = resp.choices[0].message.content
+        if raw:
+            return raw.strip()
+        else:
+            return "(OpenAI returned empty response)"
 
     except Exception as e:
-        print("OpenAI API error:", e)
-        return ""
-
-# -------------------
-# ENTRY POINT
-# -------------------
-def get_bot_response(profile: Dict[str, Any]) -> str:
-    cands = filter_candidates(profile, top_k=15)
-    ranked_text = rank_with_llm(profile, cands, n_results=5)
-    if not ranked_text:
-        fallback = "\n".join(f"- {row['name']} (heuristic filter)"
-                             for _, row in cands.head(5).iterrows())
-        return f"(LLM failed, showing heuristics)\n{fallback}"
-    return ranked_text
+        import traceback
+        traceback.print_exc()
+        return f"(OpenAI API error: {e})"
 
