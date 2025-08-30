@@ -59,7 +59,7 @@ You are an NGO recommender.
 TASK: Given a user profile and candidate NGOs, recommend the top matches. 
 
 FORMAT: 
-- NGO Name — reason why it matches (cause, city, items/skills)
+- NGO Name — short reason why it matches (cause, city, items/skills)
 - NGO Name — short reason...
 (max 5 recommendations, plain text only)
 """
@@ -172,6 +172,7 @@ def get_bot_response(profile: Dict[str, Any]) -> str:
 # Debug info
 print("OLLAMA_URL in use:", OLLAMA_URL)
 print("OLLAMA_MODEL in use:", OLLAMA_MODEL)
+
 
 
 
