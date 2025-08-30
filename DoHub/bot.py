@@ -152,8 +152,16 @@ Return top {n_results} matches as bullet points.
 # ENTRY POINT
 # -------------------
 def get_bot_response(profile: Dict[str, Any]) -> str:
+    import streamlit as st
+
     cands = filter_candidates(profile, top_k=15)
     ranked_text = rank_with_llm(profile, cands, n_results=5)
+
+    # 🔎 Show raw debug info in sidebar
+    with st.sidebar:
+        st.subheader("🔎 Debug: LLM output")
+        st.code(ranked_text if ranked_text else "(empty)")
+
     if not ranked_text:
         # fallback: just return top candidates
         fallback = "\n".join(f"- {row['name']} (heuristic filter)"
@@ -164,4 +172,5 @@ def get_bot_response(profile: Dict[str, Any]) -> str:
 # Debug info
 print("OLLAMA_URL in use:", OLLAMA_URL)
 print("OLLAMA_MODEL in use:", OLLAMA_MODEL)
+
 
