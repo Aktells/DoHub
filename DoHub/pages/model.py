@@ -3,9 +3,6 @@ import streamlit as st
 import pandas as pd
 from bot import get_bot_response, filter_candidates
 import sys, importlib
-if "bot" in sys.modules:
-    importlib.reload(sys.modules["bot"])
-import bot
 if not st.session_state.get("auth", False):
     st.warning("Please log in first.")
     st.switch_page("home.py")   # send them back
@@ -117,4 +114,5 @@ st.divider()
 st.caption(
     "Tip: try to use the form"
 )
+
 
