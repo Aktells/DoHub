@@ -68,46 +68,54 @@ FORMAT:
 # -------------------
 def rank_with_llm(profile: Dict[str, Any], candidates_df: pd.DataFrame, n_results: int = 5) -> str:
     candidates = candidates_df.to_dict(orient="records")
-    user_prompt = {
-        "profile": profile,
-        "candidates": candidates,
-        "n_results": n_results
-    }
+
+    # build compact prompt
+    user_prompt = f"""
+    User profile:
+    City: {profile.get('city','')}
+    Needs: {', '.join(profile.get('needs', []))}
+    Items: {', '.join(profile.get('items_to_donate', []))}
+    Skills: {', '.join(profile.get('skills', []))}
+    Notes: {profile.get('notes','')}
+
+    Candidate NGOs:
+    {json.dumps(candidates[:10], indent=2)}
+
+    Return top {n_results} matches as bullet points.
+    """
 
     try:
-        # Decide payload based on endpoint
         if "/api/chat" in OLLAMA_URL:
             payload = {
                 "model": OLLAMA_MODEL,
                 "messages": [
                     {"role": "system", "content": SYSTEM_MSG},
-                    {"role": "user", "content": json.dumps(user_prompt, indent=2)}
+                    {"role": "user", "content": user_prompt}
                 ],
-                "stream": False,
+                "stream": False
             }
-        else:  # default to /api/generate
+        else:  # /api/generate
             payload = {
                 "model": OLLAMA_MODEL,
-                "prompt": f"{SYSTEM_MSG}\n\nUser + NGOs:\n{json.dumps(user_prompt, indent=2)}",
-                "stream": False,
+                "prompt": f"{SYSTEM_MSG}\n\n{user_prompt}",
+                "stream": False
             }
 
-        resp = requests.post(OLLAMA_URL, json=payload, timeout=120)
+        resp = requests.post(OLLAMA_URL, json=payload, timeout=60)
         resp.raise_for_status()
         data = resp.json()
 
-        # Different keys for different endpoints
         if "/api/chat" in OLLAMA_URL:
             raw = data.get("message", {}).get("content", "").strip()
         else:
             raw = data.get("response", "").strip()
 
-        print("RAW LLM RESPONSE:", raw[:400])
-        return raw
+        return raw or "(empty LLM reply)"
 
     except Exception as e:
         print("LLM error:", e)
         return ""
+
 
 # -------------------
 # ENTRY POINT
@@ -123,3 +131,4 @@ def get_bot_response(profile: Dict[str, Any]) -> str:
     return ranked_text
 
 print("OLLAMA_URL in use:", OLLAMA_URL)
+
