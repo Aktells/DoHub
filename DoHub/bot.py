@@ -6,7 +6,7 @@ import pandas as pd
 
 NGO_CSV_PATH = "ngos.csv"
 OLLAMA_URL   = "https://6240aee68a5c.ngrok-free.app/api/chat"
-OLLAMA_MODEL = "llama3"   # or mistral, gemma:instruct
+OLLAMA_MODEL = "llama3.2"   # or mistral, gemma:instruct
 
 from pathlib import Path
 
@@ -88,6 +88,7 @@ def get_bot_response(profile: Dict[str, Any]) -> str:
         return f"(LLM failed, showing heuristics)\n{fallback}"
     return ranked_text
 print("OLLAMA_URL in use:", OLLAMA_URL)
+
 
 
 
