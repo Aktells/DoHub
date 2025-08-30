@@ -1,19 +1,21 @@
 from __future__ import annotations
-import re, requests, json
+import re, os
 from typing import Any, Dict, List
 import pandas as pd
 from pathlib import Path
+from openai import OpenAI
 
 # -------------------
 # CONFIG
 # -------------------
 NGO_CSV_PATH = Path(__file__).parent / "ngos.csv"
-# Point this to your ngrok/cloudflare tunnel URL
-OLLAMA_URL   = "https://6240aee68a5c.ngrok-free.app/api/generate"   # or /api/chat
-OLLAMA_MODEL = "llama3.2"   # can be llama3, mistral, gemma:instruct, etc.
+OPENAI_MODEL = "gpt-4o-mini"   # reliable + cheap for recommendations
+
+# init OpenAI client
+client = OpenAI(api_key=os.getenv("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"))
 
 # -------------------
-# LOAD DATA
+# LOAD NGO DATA
 # -------------------
 try:
     NGOs = pd.read_csv(NGO_CSV_PATH).fillna("")
@@ -53,26 +55,15 @@ def filter_candidates(profile: Dict[str, Any], top_k: int = 25) -> pd.DataFrame:
 # -------------------
 # PROMPT
 # -------------------
-SYSTEM_MSG = """
-You are an NGO recommender.
-
-TASK: Given a user profile and candidate NGOs, recommend the top matches. 
-
-FORMAT: 
-- NGO Name — short reason why it matches (cause, city, items/skills)
-- NGO Name — short reason...
-(max 5 recommendations, plain text only)
-"""
+SYSTEM_MSG = "You are an NGO recommender. Recommend the best NGOs for the user."
 
 # -------------------
-# LLM CALL
+# LLM RANKING
 # -------------------
 def rank_with_llm(profile: Dict[str, Any], candidates_df: pd.DataFrame, n_results: int = 5) -> str:
     candidates = candidates_df.to_dict(orient="records")
-
-    # Keep payload short (avoid ngrok issues)
-    compact_candidates = [{"name": c["name"], "city": c["city"], "categories": c["categories"]}
-                          for c in candidates[:10]]
+    compact_candidates = "\n".join(f"- {c['name']} ({c['categories']}, {c['city']})" 
+                                   for c in candidates[:5])
 
     user_prompt = f"""
 User profile:
@@ -83,96 +74,36 @@ Skills: {', '.join(profile.get('skills', []))}
 Notes: {profile.get('notes','')}
 
 Candidate NGOs:
-{json.dumps(compact_candidates, indent=2)}
+{compact_candidates}
 
 Return top {n_results} matches as bullet points.
 """
 
     try:
-        # Decide payload based on endpoint
-        if "/api/chat" in OLLAMA_URL:
-            payload = {
-                "model": OLLAMA_MODEL,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_MSG},
-                    {"role": "user", "content": user_prompt}
-                ],
-                "stream": False
-            }
-        else:  # /api/generate
-            payload = {
-                "model": OLLAMA_MODEL,
-                "prompt": f"{SYSTEM_MSG}\n\n{user_prompt}",
-                "stream": False
-            }
+        resp = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": SYSTEM_MSG},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.4,
+        )
 
-        # Make the request
-        resp = requests.post(OLLAMA_URL, json=payload, timeout=90)
-        resp.raise_for_status()
-
-        # Try to decode JSON
-        try:
-            data = resp.json()
-        except Exception:
-            raw_text = resp.text
-            print("RAW NON-JSON RESPONSE:", raw_text[:400])
-            return raw_text
-
-        # Robust extraction
-        raw = ""
-        if isinstance(data, dict):
-            raw = (
-                data.get("response") or
-                (data.get("message", {}) or {}).get("content") or
-                ""
-            )
-        elif isinstance(data, list):
-            # Sometimes you get a list of chunks
-            parts = []
-            for item in data:
-                if "response" in item:
-                    parts.append(item["response"])
-                elif "message" in item and "content" in item["message"]:
-                    parts.append(item["message"]["content"])
-            raw = "".join(parts)
-
-        raw = raw.strip()
-        if not raw:
-            print("DEBUG full JSON:", json.dumps(data, indent=2)[:400])
-        else:
-            print("RAW LLM RESPONSE:", raw[:400])
-
+        raw = resp.choices[0].message.content.strip()
         return raw
 
     except Exception as e:
-        print("LLM error:", e)
+        print("OpenAI API error:", e)
         return ""
 
 # -------------------
 # ENTRY POINT
 # -------------------
 def get_bot_response(profile: Dict[str, Any]) -> str:
-    import streamlit as st
-
     cands = filter_candidates(profile, top_k=15)
     ranked_text = rank_with_llm(profile, cands, n_results=5)
-
-    # 🔎 Show raw debug info in sidebar
-    with st.sidebar:
-        st.subheader("🔎 Debug: LLM output")
-        st.code(ranked_text if ranked_text else "(empty)")
-
     if not ranked_text:
-        # fallback: just return top candidates
         fallback = "\n".join(f"- {row['name']} (heuristic filter)"
                              for _, row in cands.head(5).iterrows())
         return f"(LLM failed, showing heuristics)\n{fallback}"
     return ranked_text
-
-# Debug info
-print("OLLAMA_URL in use:", OLLAMA_URL)
-print("OLLAMA_MODEL in use:", OLLAMA_MODEL)
-
-
-
-
