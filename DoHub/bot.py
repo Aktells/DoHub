@@ -1,15 +1,16 @@
 from __future__ import annotations
-import re, os
+import re, os, requests
 from typing import Any, Dict, List
 import pandas as pd
 from pathlib import Path
-from openai import OpenAI
 
 # -------------------
 # CONFIG
 # -------------------
 NGO_CSV_PATH = Path(__file__).parent / "ngos.csv"
-OPENAI_MODEL = "gpt-4o-mini"   # or gpt-3.5-turbo if needed
+GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL   = "llama3-8b-8192"   # fast + capable
+# You'll need to set GROQ_API_KEY in secrets.toml
 
 # -------------------
 # LOAD NGO DATA
@@ -50,21 +51,14 @@ def filter_candidates(profile: Dict[str, Any], top_k: int = 25) -> pd.DataFrame:
     return df.sort_values(["score_pre"], ascending=False).head(top_k)
 
 # -------------------
-# LLM HELPER
-# -------------------
-def _get_client() -> OpenAI:
-    key = os.getenv("OPENAI_API_KEY")
-    if not key:
-        raise RuntimeError("❌ OPENAI_API_KEY not set. Add it in Streamlit secrets.")
-    return OpenAI(api_key=key)
-
-# -------------------
 # LLM RANKING
 # -------------------
 def rank_with_llm(profile: Dict[str, Any], candidates_df: pd.DataFrame, n_results: int = 5) -> str:
     candidates = candidates_df.to_dict(orient="records")
-    compact_candidates = "\n".join(f"- {c['name']} ({c['categories']}, {c['city']})" 
-                                   for c in candidates[:5])
+    compact_candidates = "\n".join(
+        f"- {c['name']} ({c['categories']}, {c['city']})"
+        for c in candidates[:5]
+    )
 
     user_prompt = f"""
 User profile:
@@ -80,27 +74,30 @@ Candidate NGOs:
 Return top {n_results} matches as bullet points.
 """
 
+    headers = {
+        "Authorization": f"Bearer {os.getenv('GROQ_API_KEY')}",
+        "Content-Type": "application/json"
+    }
+
+    body = {
+        "model": GROQ_MODEL,
+        "messages": [
+            {"role": "system", "content": "You are an NGO recommender."},
+            {"role": "user", "content": user_prompt}
+        ],
+        "temperature": 0.4,
+        "max_tokens": 500
+    }
+
     try:
-        client = _get_client()
-        resp = client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": "You are an NGO recommender."},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.4,
-            max_tokens=500,
-        )
-
-        raw = resp.choices[0].message.content
-        if raw:
-            return raw.strip()
-        return "(⚠️ OpenAI returned empty response)"
-
+        resp = requests.post(GROQ_URL, headers=headers, json=body, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        return data["choices"][0]["message"]["content"].strip()
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return f"(OpenAI API error: {e})"
+        return f"(Groq API error: {e})"
 
 # -------------------
 # ENTRY POINT
@@ -108,7 +105,7 @@ Return top {n_results} matches as bullet points.
 def get_bot_response(profile: Dict[str, Any]) -> str:
     cands = filter_candidates(profile, top_k=15)
     ranked_text = rank_with_llm(profile, cands, n_results=5)
-    if not ranked_text:
+    if not ranked_text or ranked_text.startswith("("):
         fallback = "\n".join(f"- {row['name']} (heuristic filter)"
                              for _, row in cands.head(5).iterrows())
         return f"(LLM failed, showing heuristics)\n{fallback}"
