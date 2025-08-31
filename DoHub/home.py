@@ -1,22 +1,20 @@
 import streamlit as st
-from db import register_user, validate_user
+from db import register_user, validate_user, get_current_user
 
 st.set_page_config(page_title="DoHub | Home", layout="centered")
 
-# ---- Global page bg ----
-st.markdown("""
-<style>
-html, body, .stApp { background: #0f1115; }
-</style>
-""", unsafe_allow_html=True)
-
-# ---- Persistent auth (don't reset if already logged in) ----
+# ---- Persistent auth ----
 if "auth" not in st.session_state:
     st.session_state["auth"] = False
 if "user_email" not in st.session_state:
     st.session_state["user_email"] = None
-if "role" not in st.session_state:
-    st.session_state["role"] = None
+
+# Restore Supabase session automatically
+if not st.session_state["auth"]:
+    user = get_current_user()
+    if user:
+        st.session_state["auth"] = True
+        st.session_state["user_email"] = user["email"]
 
 with st.container():
     st.markdown('<div class="__glass-bg-marker"></div>', unsafe_allow_html=True)
@@ -48,19 +46,8 @@ with st.container():
       color: #fff;
     }
     .glass-row { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2rem; }
-
-    /* Restored original title size + spacing */
-    .glass-title { 
-      font-size: 3.4rem; 
-      font-weight: 800; 
-      margin: 0 0 1rem 0; 
-    }
-    .glass-sub { 
-      color: #e7e7e7; 
-      margin: 0 0 2rem 0; 
-      font-size: 1.2rem;
-    }
-
+    .glass-title { font-size: 3.4rem; font-weight: 800; margin: 0 0 1rem 0; }
+    .glass-sub { color: #e7e7e7; margin: 0 0 2rem 0; font-size: 1.2rem; }
     .stTextInput > div > div {
       background: transparent !important;
       border: 1px solid #555 !important;
@@ -107,7 +94,6 @@ with st.container():
                     if user:
                         st.session_state["auth"] = True
                         st.session_state["user_email"] = user["email"]
-                        st.session_state["role"] = user["role"]
                         st.success("Logged in successfully!")
                         st.switch_page("pages/model.py")
                     else:
@@ -116,9 +102,10 @@ with st.container():
                 new_email = st.text_input("Email", key="reg_email")
                 new_pwd = st.text_input("Password", type="password", key="reg_pwd")
                 if st.button("Register Volunteer"):
-                    if register_user(new_email, new_pwd, role="volunteer"):
+                    if register_user(new_email, new_pwd):
                         st.success("Account created! You can log in now.")
                     else:
-                        st.error("Registration failed. Email may already exist.")
+                        st.error("Registration failed. Try again.")
 
     st.markdown('</div>', unsafe_allow_html=True)
+
