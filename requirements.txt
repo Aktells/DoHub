@@ -8,3 +8,4 @@ openai
 firebase-admin
 google-cloud-firestore
 requests
+supabase
