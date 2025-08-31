@@ -60,3 +60,4 @@ def validate_user(email, password):
         print("Validation failed:", e)
         return None
 
+
