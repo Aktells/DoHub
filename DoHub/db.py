@@ -6,7 +6,7 @@ import os
 
 # --- Supabase setup ---
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://fzklrmnfnvnwiypgomgq.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_secret_MJX39sm-at2d6Hfjh948fg_uMHPzWcd")  # keep secret!
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # keep secret!
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- Email config ---
@@ -59,3 +59,4 @@ def validate_user(email, password):
     except Exception as e:
         print("Validation failed:", e)
         return None
+
