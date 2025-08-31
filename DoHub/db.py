@@ -1,7 +1,7 @@
 from supabase import create_client
 import os
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_URL = os.getenv("SUPABASE_URL,https://fzklrmnfnvnwiypgomgq.supabase.co")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -33,3 +33,4 @@ def validate_user(email, password):
     except Exception as e:
         print("Login failed:", e)
         return None
+
