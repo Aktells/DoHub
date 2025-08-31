@@ -1,5 +1,5 @@
 import streamlit as st
-from db import register_user, validate_user   # <--- import functions
+from db import register_user, validate_user
 
 st.set_page_config(page_title="DoHub | Home", layout="centered")
 
@@ -10,10 +10,73 @@ html, body, .stApp { background: #0f1115; }
 </style>
 """, unsafe_allow_html=True)
 
+# ---- Persistent auth (don't reset if already logged in) ----
+if "auth" not in st.session_state:
+    st.session_state["auth"] = False
+if "user_email" not in st.session_state:
+    st.session_state["user_email"] = None
+if "role" not in st.session_state:
+    st.session_state["role"] = None
+
 with st.container():
     st.markdown('<div class="__glass-bg-marker"></div>', unsafe_allow_html=True)
 
-    st.markdown("""<style>/* styles omitted for brevity (same as before) */</style>""", unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+    div:has(> .__glass-bg-marker) {
+      position: relative;
+      margin: 10vh auto 0 auto;
+      width: 90%;
+      max-width: 980px;
+      padding: 0;
+    }
+    .__glass-bg-marker {
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.07);
+      border-radius: 20px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.30);
+      border: 1px solid rgba(255,255,255,0.14);
+      z-index: 0;
+    }
+    div:has(> .__glass-bg-marker) > *:not(.__glass-bg-marker) {
+      position: relative;
+      z-index: 1;
+      padding: 2.5rem;
+      color: #fff;
+    }
+    .glass-row { display: grid; grid-template-columns: 1.1fr 1fr; gap: 2rem; }
+
+    /* Restored original title size + spacing */
+    .glass-title { 
+      font-size: 3.4rem; 
+      font-weight: 800; 
+      margin: 0 0 1rem 0; 
+    }
+    .glass-sub { 
+      color: #e7e7e7; 
+      margin: 0 0 2rem 0; 
+      font-size: 1.2rem;
+    }
+
+    .stTextInput > div > div {
+      background: transparent !important;
+      border: 1px solid #555 !important;
+      border-radius: 10px !important;
+    }
+    .stTextInput input { color: #fff !important; }
+    .stTextInput input::placeholder { color: #9aa0a6 !important; }
+    .stButton > button {
+      background: #ffffff22; color: #fff; border: 1px solid #555;
+      padding: 10px 16px; border-radius: 12px; font-weight: 600;
+    }
+    .stButton > button:hover { background: #ffffff33; }
+    label { color: #ddd !important; }
+    hr.glass-sep { border: none; border-top: 1px solid #333; margin: 1.2rem 0; }
+    </style>
+    """, unsafe_allow_html=True)
 
     st.markdown('<div class="glass-row">', unsafe_allow_html=True)
 
