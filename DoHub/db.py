@@ -3,7 +3,7 @@ from supabase import create_client
 import os
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://fzklrmnfnvnwiypgomgq.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # keep secret!
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def register_user(email, password):
@@ -20,7 +20,7 @@ def register_user(email, password):
         return False
 
 def validate_user(email, password):
-    """Log in user and return session + user info"""
+    """Log in user with Supabase Auth"""
     try:
         response = supabase.auth.sign_in_with_password({"email": email, "password": password})
         if response.session:
@@ -35,7 +35,7 @@ def validate_user(email, password):
         return None
 
 def get_current_user():
-    """Restore logged-in session if exists"""
+    """Restore logged-in session if it exists"""
     try:
         session = supabase.auth.get_session()
         if session and session.user:
