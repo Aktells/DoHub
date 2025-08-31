@@ -3,10 +3,10 @@ from supabase import create_client
 from dotenv import load_dotenv
 import streamlit as st
 
-# Load env vars
+# Load environment variables from .env
 load_dotenv()
 
-@st.cache_resource  # cache Supabase client as a resource
+@st.cache_resource
 def init_supabase():
     SUPABASE_URL = os.getenv("SUPABASE_URL")
     SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -16,26 +16,26 @@ def init_supabase():
 
 supabase = init_supabase()
 
-def register_user(email, password):
+def register_user(email: str, password: str) -> bool:
     """Register a new user with Supabase Auth"""
     try:
         response = supabase.auth.sign_up({"email": email, "password": password})
-        if getattr(response, "user", None):
+        if response.user:
+            print("✅ Registered:", response.user.email)
             return True
+        if response.error:
+            print("❌ Registration error:", response.error.message)
         return False
     except Exception as e:
-        print("Register failed:", e)
+        print("❌ Exception during register:", e)
         return False
 
-def validate_user(email, password):
-    """Log in user with Supabase Auth (v2 style)"""
+def validate_user(email: str, password: str):
+    """Log in user with Supabase Auth"""
     try:
         response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        print("DEBUG LOGIN RESPONSE:", response)  # log full response
 
-        # DEBUG: print the whole response to terminal
-        print("DEBUG LOGIN RESPONSE:", response)
-
-        # Check if login succeeded
         if response.session and response.user:
             return {
                 "email": response.user.email,
@@ -43,36 +43,9 @@ def validate_user(email, password):
                 "refresh_token": response.session.refresh_token
             }
 
-        # If we get here, login failed → print reason
-        if hasattr(response, "error") and response.error:
-            print("Supabase login error:", response.error.message)
-
+        if response.error:
+            print("❌ Login error:", response.error.message)
         return None
     except Exception as e:
-        print("Login failed with exception:", e)
+        print("❌ Exception during login:", e)
         return None
-with tab_login:
-    email = st.text_input("Email", placeholder="you@example.org", key="login_email")
-    pwd = st.text_input("Password", type="password", placeholder="Enter password", key="login_pwd")
-
-    if st.button("Log In"):
-        print("DEBUG: Login button clicked with", email, pwd)  # 👈 see if button fires
-
-        user = validate_user(email, pwd)
-
-        print("DEBUG: validate_user returned", user)  # 👈 see what came back
-
-        if user:
-            st.session_state["auth"] = True
-            st.session_state["user_email"] = user["email"]
-            st.session_state["access_token"] = user["access_token"]
-            st.session_state["refresh_token"] = user["refresh_token"]
-
-            st.success("Logged in successfully!")
-            st.switch_page("pages/model.py")
-        else:
-            st.error("Invalid email or password.")
-
-
-
-
