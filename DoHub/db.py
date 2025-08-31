@@ -2,7 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, auth, firestore
 
 # Initialize once
-cred = credentials.Certificate("firebase-adminsdk-8svgq@apoorv-mcefid.iam.gserviceaccount.com")
+cred = credentials.Certificate("52715281a6b4dc26389f6107abbcde5ead55e9af")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
@@ -35,4 +35,5 @@ def validate_user(email, password):
 # Store NGO details
 def register_ngo(uid, details: dict):
     db.collection("ngos").document(uid).set(details)
+
 
