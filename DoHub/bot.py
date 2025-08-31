@@ -8,7 +8,7 @@ from pathlib import Path
 # CONFIG
 # -------------------
 NGO_CSV_PATH = Path(__file__).parent / "ngos.csv"
-GROQ_URL     = "https://api.groq.com/openai/v1/chat"
+GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL   = "llama3-8b-8192"   # fast + capable
 # You'll need to set GROQ_API_KEY in secrets.toml
 
@@ -110,5 +110,6 @@ def get_bot_response(profile: Dict[str, Any]) -> str:
                              for _, row in cands.head(5).iterrows())
         return f"(LLM failed, showing heuristics)\n{fallback}"
     return ranked_text
+
 
 
