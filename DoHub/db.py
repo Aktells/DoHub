@@ -1,63 +1,46 @@
-import bcrypt
-import smtplib
-from email.mime.text import MIMEText
-from supabase import create_client, Client
+
+from supabase import create_client
 import os
 
-# --- Supabase setup ---
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://fzklrmnfnvnwiypgomgq.supabase.co")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # keep secret!
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- Email config ---
-ADMIN_EMAIL = "apoorvkh18@gmail.com"      # <-- change this
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-SMTP_USER = "apoorvkh18@gmail.com"
-SMTP_PASS = "cebw vbgh mnds xskn "        # Gmail app password
-
-def send_admin_email(subject, body):
-    """Send an email to the admin when a new NGO registers."""
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = SMTP_USER
-    msg["To"] = ADMIN_EMAIL
+def register_user(email, password):
+    """Register a new user with Supabase Auth"""
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.send_message(msg)
-        return True
-    except Exception as e:
-        print("Email failed:", e)
-        return False
-
-# --- User functions ---
-def register_user(email, password, role="volunteer"):
-    """Insert a new user in Supabase."""
-    password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-    try:
-        response = supabase.table("users").insert({
-            "email": email,
-            "password_hash": password_hash,
-            "role": role
-        }).execute()
-        return True if response.data else False
+        response = supabase.auth.sign_up({"email": email, "password": password})
+        if response.user:
+            return True
+        else:
+            print("Signup error:", response)
+            return False
     except Exception as e:
         print("Register failed:", e)
         return False
 
 def validate_user(email, password):
-    """Check credentials against Supabase."""
+    """Log in user and return session + user info"""
     try:
-        response = supabase.table("users").select("password_hash, role").eq("email", email).execute()
-        if response.data:
-            row = response.data[0]
-            if bcrypt.checkpw(password.encode(), row["password_hash"].encode()):
-                return {"email": email, "role": row["role"]}
+        response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+        if response.session:
+            return {
+                "email": response.user.email,
+                "access_token": response.session.access_token,
+                "refresh_token": response.session.refresh_token
+            }
         return None
     except Exception as e:
-        print("Validation failed:", e)
+        print("Login failed:", e)
         return None
 
-
+def get_current_user():
+    """Restore logged-in session if exists"""
+    try:
+        session = supabase.auth.get_session()
+        if session and session.user:
+            return {"email": session.user.email}
+        return None
+    except Exception as e:
+        print("Get session failed:", e)
+        return None
