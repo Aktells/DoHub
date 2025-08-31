@@ -110,3 +110,4 @@ def get_bot_response(profile: Dict[str, Any]) -> str:
                              for _, row in cands.head(5).iterrows())
         return f"(LLM failed, showing heuristics)\n{fallback}"
     return ranked_text
+
