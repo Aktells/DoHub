@@ -8,17 +8,17 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-from db import init_db, register_user
+from db import register_user, supabase  # use Supabase client + register_user
 
-# ---------- OPTIONAL: email notify (configure or skip) ----------
+# ---------- OPTIONAL: email notify ----------
 import smtplib
 from email.mime.text import MIMEText
 
 ADMIN_EMAIL = "apoorvkh18@gmail.com"      # <-- CHANGE
-SMTP_SERVER = "smtp.gmail.com"              # Gmail
+SMTP_SERVER = "smtp.gmail.com"            # Gmail
 SMTP_PORT   = 587
 SMTP_USER   = "apoorvkh18@gmail.com"      # <-- CHANGE
-SMTP_PASS   = "cebw vbgh mnds xskn "     # <-- 16-char App Password
+SMTP_PASS   = "cebw vbgh mnds xskn "      # <-- 16-char App Password
 
 def send_admin_email(subject: str, body: str) -> bool:
     try:
@@ -36,7 +36,6 @@ def send_admin_email(subject: str, body: str) -> bool:
         return False
 
 # ---------- Page setup ----------
-init_db()
 st.set_page_config(page_title="NGO Sign Up | DoHub", layout="centered")
 
 # ---------- Styles ----------
@@ -92,9 +91,21 @@ with st.form("ngo_signup_form"):
             for e in errs:
                 st.error(e)
         else:
-            # Register NGO user in DB
-            ok = register_user(email, password, role="ngo")
+            # 1. Register NGO as an auth user
+            ok = register_user(email, password)
             if ok:
+                # 2. Insert NGO details into 'ngos' table
+                try:
+                    supabase.table("ngos").insert({
+                        "ngo_name": ngo_name,
+                        "email": email,
+                        "phone": phone,
+                        "address": address,
+                        "registration_id": reg_id
+                    }).execute()
+                except Exception as e:
+                    st.warning(f"NGO metadata insert failed: {e}")
+
                 st.success("✅ NGO registered successfully! You can now log in from the Home page.")
                 st.session_state["ngo_registered"] = True
                 st.session_state["ngo_registered_email"] = email
@@ -110,7 +121,7 @@ with st.form("ngo_signup_form"):
                 )
                 send_admin_email("New NGO Registration", body)
             else:
-                st.error("❌ This email is already registered.")
+                st.error("❌ This email could not be registered. It may already exist.")
 
 # ---------- Post-success actions ----------
 if st.session_state["ngo_registered"]:
