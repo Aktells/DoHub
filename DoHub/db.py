@@ -3,7 +3,7 @@ from supabase import create_client
 from dotenv import load_dotenv
 import streamlit as st
 
-# Load environment variables from .env
+# Load .env file
 load_dotenv()
 
 @st.cache_resource
@@ -21,31 +21,23 @@ def register_user(email: str, password: str) -> bool:
     try:
         response = supabase.auth.sign_up({"email": email, "password": password})
         if response.user:
-            print("✅ Registered:", response.user.email)
             return True
-        if response.error:
-            print("❌ Registration error:", response.error.message)
         return False
     except Exception as e:
-        print("❌ Exception during register:", e)
+        print("❌ Registration failed:", e)
         return False
 
 def validate_user(email: str, password: str):
-    """Log in user with Supabase Auth"""
+    """Login user with Supabase Auth"""
     try:
         response = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        print("DEBUG LOGIN RESPONSE:", response)  # log full response
-
         if response.session and response.user:
             return {
                 "email": response.user.email,
                 "access_token": response.session.access_token,
                 "refresh_token": response.session.refresh_token
             }
-
-        if response.error:
-            print("❌ Login error:", response.error.message)
         return None
     except Exception as e:
-        print("❌ Exception during login:", e)
+        print("❌ Login failed:", e)
         return None
