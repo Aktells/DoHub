@@ -27,6 +27,30 @@ def register_user(email, password):
         print("Register failed:", e)
         return False
 
+def validate_user(email, password):
+    """Log in user with Supabase Auth (v2 style)"""
+    try:
+        response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+
+        # DEBUG: print the whole response to terminal
+        print("DEBUG LOGIN RESPONSE:", response)
+
+        # Check if login succeeded
+        if response.session and response.user:
+            return {
+                "email": response.user.email,
+                "access_token": response.session.access_token,
+                "refresh_token": response.session.refresh_token
+            }
+
+        # If we get here, login failed → print reason
+        if hasattr(response, "error") and response.error:
+            print("Supabase login error:", response.error.message)
+
+        return None
+    except Exception as e:
+        print("Login failed with exception:", e)
+        return None
 with tab_login:
     email = st.text_input("Email", placeholder="you@example.org", key="login_email")
     pwd = st.text_input("Password", type="password", placeholder="Enter password", key="login_pwd")
