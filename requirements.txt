@@ -8,3 +8,4 @@ requests
 supabase
 dotenv
 streamlit-cookies-manager
+openai
