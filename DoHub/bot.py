@@ -9,8 +9,9 @@ from pathlib import Path
 # -------------------
 NGO_CSV_PATH = Path(__file__).parent / "ngos.csv"
 GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL   = "llama3-8b-8192"   # fast + capable
-# You'll need to set GROQ_API_KEY in secrets.toml
+# Supported Groq models: "llama-3.1-8b-instant", "llama-3.1-70b-versatile"
+GROQ_MODEL   = "llama-3.1-8b-instant"   
+# Set GROQ_API_KEY in your .env or Streamlit secrets
 
 # -------------------
 # LOAD NGO DATA
@@ -82,7 +83,7 @@ Return top {n_results} matches as bullet points.
     body = {
         "model": GROQ_MODEL,
         "messages": [
-            {"role": "system", "content": "You are an NGO recommender."},
+            {"role": "system", "content": "You are an NGO recommender. Recommend the best NGOs clearly and concisely."},
             {"role": "user", "content": user_prompt}
         ],
         "temperature": 0.4,
@@ -93,7 +94,11 @@ Return top {n_results} matches as bullet points.
         resp = requests.post(GROQ_URL, headers=headers, json=body, timeout=60)
         resp.raise_for_status()
         data = resp.json()
-        return data["choices"][0]["message"]["content"].strip()
+
+        # Defensive parsing
+        if "choices" in data and data["choices"]:
+            return data["choices"][0]["message"]["content"].strip()
+        return "(Groq API returned no choices)"
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -110,6 +115,3 @@ def get_bot_response(profile: Dict[str, Any]) -> str:
                              for _, row in cands.head(5).iterrows())
         return f"(LLM failed, showing heuristics)\n{fallback}"
     return ranked_text
-
-
-
