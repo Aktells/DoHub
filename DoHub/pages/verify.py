@@ -4,12 +4,12 @@ from db import supabase
 st.set_page_config(page_title="DoHub | Verify Email", layout="centered")
 
 # -------------------
-# HIDE FROM SIDEBAR
+# HIDE FROM SIDEBAR (CSS)
 # -------------------
 st.markdown("""
 <style>
-/* Hide Verify page from sidebar navigation */
-section[data-testid="stSidebar"] li a span:has-text("Verify") {
+/* Hide Verify from sidebar */
+section[data-testid="stSidebar"] li a span:contains('Verify') {
     display: none !important;
 }
 </style>
@@ -58,16 +58,12 @@ st.markdown('<div class="glass-card">', unsafe_allow_html=True)
 st.markdown('<div class="glass-title">📧 Verify Your Email</div>', unsafe_allow_html=True)
 st.markdown('<div class="glass-sub">We’re confirming your email address so you can start using DoHub.</div>', unsafe_allow_html=True)
 
-# -------------------
-# TOKEN HANDLING
-# -------------------
 params = st.experimental_get_query_params()
 token = params.get("access_token", [None])[0]
 
 if token:
     try:
-        # Supabase Python SDK doesn’t expose a direct helper,
-        # so we make a raw request to confirm signup token
+        # Try to exchange token for a session
         session = supabase.auth._client._request(
             "POST",
             f"{supabase.auth.api_url}/token?grant_type=signup",
@@ -75,27 +71,27 @@ if token:
         )
 
         if session and "access_token" in session:
-            st.success("✅ Your email has been verified! You can now log in.")
-            if st.button("Go to Login"):
+            # ✅ Verified successfully
+            user_info = supabase.auth.get_user(session["access_token"])
+            if user_info and getattr(user_info, "user", None):
+                st.success("✅ Your email has been verified! You can now log in.")
+                if st.button("Go to Login"):
+                    st.switch_page("home.py")
+            else:
+                # No matching user in Supabase DB
+                st.warning("⚠️ This account does not exist. Redirecting to home...")
                 st.switch_page("home.py")
         else:
             st.error("❌ Verification failed. The link may be invalid or expired.")
+            if st.button("Go to Home"):
+                st.switch_page("home.py")
     except Exception as e:
         st.error(f"Error verifying: {e}")
+        if st.button("Go to Home"):
+            st.switch_page("home.py")
 else:
-    # If no token → accessed manually
-    st.info("Please use the verification link sent to your email to open this page.")
-
-    # Allow resend
-    email = st.text_input("Didn’t get the link? Enter your email to resend:")
-    if st.button("Resend Verification"):
-        try:
-            resp = supabase.auth.resend({"type": "signup", "email": email})
-            if resp:
-                st.success(f"✅ A new verification link has been sent to {email}.")
-            else:
-                st.error("❌ Could not resend verification email.")
-        except Exception as e:
-            st.error(f"Error resending email: {e}")
+    # If accessed without token
+    st.warning("⚠️ Invalid access. Redirecting you to Home...")
+    st.switch_page("home.py")
 
 st.markdown('</div>', unsafe_allow_html=True)
