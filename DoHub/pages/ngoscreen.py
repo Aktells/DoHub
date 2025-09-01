@@ -84,8 +84,8 @@ with st.form("ngo_signup_form"):
         elif not EMAIL_RE.match(email): errs.append("Please enter a valid email address.")
         if not password: errs.append("Password is required.")
         elif len(password) < 6: errs.append("Password must be at least 6 characters.")
-        if not phone: errs.append("Phone Number is required.")
-        if not reg_id: errs.append("Registration ID is required.")
+        if not phone: errs.append("Phone Number is required.")  # ✅ compulsory
+        if not reg_id: errs.append("Registration ID is required.")  # ✅ compulsory
 
         if errs:
             for e in errs:
@@ -106,7 +106,7 @@ with st.form("ngo_signup_form"):
                 except Exception as e:
                     st.warning(f"NGO metadata insert failed: {e}")
 
-                st.success("✅ NGO registered successfully! You can now log in from the Home page.")
+                st.success("✅ NGO registered successfully! Please check your email to verify before logging in.")
                 st.session_state["ngo_registered"] = True
                 st.session_state["ngo_registered_email"] = email
 
@@ -139,3 +139,4 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown('</div>', unsafe_allow_html=True)
+
