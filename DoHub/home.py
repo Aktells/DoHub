@@ -115,8 +115,9 @@ with st.container():
                 new_pwd = st.text_input("Password", type="password", key="reg_pwd")
                 if st.button("Register Volunteer"):
                     if register_user(new_email, new_pwd):
-                        st.success("Account created! You can log in now.")
+                        st.success("We’ve sent you a verification email. Please check your inbox and verify before logging in.")
                     else:
                         st.error("Registration failed. Try again.")
 
     st.markdown('</div>', unsafe_allow_html=True)
+
