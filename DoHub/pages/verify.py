@@ -4,12 +4,12 @@ from db import supabase
 st.set_page_config(page_title="DoHub | Verify Email", layout="centered")
 
 # -------------------
-# HIDE FROM SIDEBAR (CSS)
+# HIDE FROM SIDEBAR (new selector)
 # -------------------
 st.markdown("""
 <style>
-/* Hide Verify from sidebar */
-section[data-testid="stSidebar"] li a span:contains('Verify') {
+/* Hide Verify page entry from sidebar */
+section[data-testid="stSidebar"] li a:has(span:contains("Verify")) {
     display: none !important;
 }
 </style>
@@ -58,12 +58,15 @@ st.markdown('<div class="glass-card">', unsafe_allow_html=True)
 st.markdown('<div class="glass-title">📧 Verify Your Email</div>', unsafe_allow_html=True)
 st.markdown('<div class="glass-sub">We’re confirming your email address so you can start using DoHub.</div>', unsafe_allow_html=True)
 
-params = st.experimental_get_query_params()
-token = params.get("access_token", [None])[0]
+# -------------------
+# TOKEN HANDLING
+# -------------------
+params = st.query_params
+token = params.get("access_token", None)
 
 if token:
     try:
-        # Try to exchange token for a session
+        # Exchange token for a session
         session = supabase.auth._client._request(
             "POST",
             f"{supabase.auth.api_url}/token?grant_type=signup",
@@ -71,14 +74,12 @@ if token:
         )
 
         if session and "access_token" in session:
-            # ✅ Verified successfully
             user_info = supabase.auth.get_user(session["access_token"])
             if user_info and getattr(user_info, "user", None):
                 st.success("✅ Your email has been verified! You can now log in.")
                 if st.button("Go to Login"):
                     st.switch_page("home.py")
             else:
-                # No matching user in Supabase DB
                 st.warning("⚠️ This account does not exist. Redirecting to home...")
                 st.switch_page("home.py")
         else:
@@ -90,7 +91,6 @@ if token:
         if st.button("Go to Home"):
             st.switch_page("home.py")
 else:
-    # If accessed without token
     st.warning("⚠️ Invalid access. Redirecting you to Home...")
     st.switch_page("home.py")
 
